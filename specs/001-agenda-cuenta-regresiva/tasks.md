@@ -54,12 +54,19 @@
 
 ## Fase 3 — Franja "Próximo"
 
-- [ ] **T-3.1** Server functions `getNextEvent`, `listUpcomingEvents` (Zod) + mapeo a `Event`.
-- [ ] **T-3.2** `<NextEventHero>` sticky con SSR del próximo evento.
-- [ ] **T-3.3** Cuenta regresiva en vivo sin desajuste de hidratación (plan §6.1).
-- [ ] **T-3.4** Tarjetas de eventos fijados ★ en la franja.
-- [ ] **T-3.5** Estado vacío (RF-11) y estados cargando/error.
-- [ ] **Checkpoint:** la franja muestra el próximo evento y su countdown nada más abrir. 🎯
+- [x] **T-3.1** Server function `loadAppData` que lee Google Calendar y mapea a
+      `CalendarEvent` (Zod en `google-calendar.ts`); guard de sesión + redirect. *(verificado
+      en runtime: `/app` sin sesión → 307 /login)*
+- [x] **T-3.2** `<NextEventHero>` sticky con SSR del próximo evento. *(`src/components/`)*
+- [x] **T-3.3** Cuenta regresiva en vivo sin desajuste de hidratación (`Countdown`, base =
+      `now` del servidor hasta montar; plan §6.1).
+- [x] **T-3.4** Tarjetas de eventos fijados ★ en la franja. *(render listo; el "fijar" llega
+      en Fase 6, hasta entonces la lista de pinned va vacía)*
+- [x] **T-3.5** Estado vacío (RF-11, "No tienes nada próximo") y `pendingComponent` /
+      `errorComponent` de la ruta `/app`.
+- [~] **Checkpoint:** la franja muestra el próximo evento y su countdown nada más abrir. 🎯
+      *(server path verificado; falta confirmación visual autenticada en el navegador del
+      usuario — requiere :3000 libre de Progressia)*
 
 ## Fase 4 — Grilla zoomable (el protagonista)
 

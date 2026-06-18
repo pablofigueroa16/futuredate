@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getNextEvent, timeUntil } from './time'
+import { formatTimeUntil, getNextEvent, timeUntil } from './time'
 
 const ev = (id: string, iso: string) => ({ id, start: new Date(iso) })
 
@@ -85,5 +85,23 @@ describe('timeUntil', () => {
     const now = new Date('2026-03-29T00:00:00Z')
     const target = new Date('2026-04-01T00:00:00Z')
     expect(timeUntil(target, now)).toMatchObject({ days: 3, hours: 0, minutes: 0 })
+  })
+})
+
+describe('formatTimeUntil', () => {
+  const fmt = (target: string, now: string) =>
+    formatTimeUntil(timeUntil(new Date(target), new Date(now)))
+
+  it('días y horas', () => {
+    expect(fmt('2026-06-21T14:00:00Z', '2026-06-18T10:00:00Z')).toBe('3 d · 4 h')
+  })
+  it('horas y minutos', () => {
+    expect(fmt('2026-06-18T13:30:00Z', '2026-06-18T10:00:00Z')).toBe('3 h · 30 min')
+  })
+  it('solo minutos', () => {
+    expect(fmt('2026-06-18T10:08:00Z', '2026-06-18T10:00:00Z')).toBe('8 min')
+  })
+  it('pasado → "ahora"', () => {
+    expect(fmt('2026-06-18T09:00:00Z', '2026-06-18T10:00:00Z')).toBe('ahora')
   })
 })

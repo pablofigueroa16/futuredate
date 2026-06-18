@@ -49,3 +49,14 @@ export function timeUntil(target: Date, now: Date): TimeUntil {
   const minutes = totalMinutes % 60
   return { isPast: false, totalMinutes, days, hours, minutes }
 }
+
+/**
+ * Texto compacto de la cuenta regresiva, mostrando las dos unidades mayores.
+ * P.ej. "3 d · 4 h", "5 h · 12 min", "8 min", o "ahora" si ya pasó.
+ */
+export function formatTimeUntil(t: TimeUntil): string {
+  if (t.isPast) return 'ahora'
+  if (t.days > 0) return `${t.days} d · ${t.hours} h`
+  if (t.hours > 0) return `${t.hours} h · ${t.minutes} min`
+  return `${t.minutes} min`
+}

@@ -42,10 +42,11 @@ Specs vivas en [`specs/`](./specs).
 
 ## Estado
 
-🟢 **Fase 2 completada** — lógica pura de tiempo y zoom con TDD (date-fns): `getNextEvent`,
-`timeUntil` (inmune a DST), `rangeForLevel` y `layoutForLevel`, con **23 tests en verde**.
-La Fase 1 (auth Google + DB Neon) ya estaba verificada de punta a punta. Siguiente:
-**Fase 3** (franja "Próximo" con cuenta regresiva en vivo). Ver
+🟢 **Fase 3 completada** — franja "Próximo" sticky con SSR del próximo evento (leído de
+Google Calendar vía server function), cuenta regresiva en vivo sin desajuste de hidratación,
+tarjetas de fijados ★, y estados vacío/cargando/error. Ruta de servidor verificada en
+runtime (guard + redirects); **27 tests en verde**, `build`/`tsc`/`lint` limpios. Falta solo
+la confirmación visual autenticada en navegador. Siguiente: **Fase 4** (grilla zoomable). Ver
 [`tasks.md`](./specs/001-agenda-cuenta-regresiva/tasks.md).
 
 ## Desarrollo
