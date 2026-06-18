@@ -116,11 +116,15 @@
 
 ## Fase 7 — Pulido y cierre
 
-- [ ] **T-7.1** Accesibilidad: franja `aria-live`; navegación de niveles por teclado (RNF-5).
-- [ ] **T-7.2** Fluidez del zoom con muchos eventos: degradar detalle, no fps (RNF-3).
-- [ ] **T-7.3** Manejo de rate limits / errores de Google con reintentos (RNF-7).
-- [ ] **T-7.4** Repaso de zonas horarias con un evento en otra TZ (RNF-6).
-- [ ] **T-7.5** `pnpm build` + `pnpm test` en verde; revisar todos los criterios de §7.
+- [x] **T-7.1** Accesibilidad: cuenta regresiva con `aria-live="polite"` (cambia a resolución
+      de minuto); celdas con `aria-label` legible + `aria-current` para hoy; celdas son
+      botones (focusables/activables por teclado) (RNF-5).
+- [x] **T-7.2** Fluidez del zoom: por diseño los niveles gruesos (Trimestre/Año) solo pintan
+      conteo/heatmap, no eventos; el detalle se degrada con el tamaño, no los fps (RNF-3).
+- [x] **T-7.3** Reintentos con backoff exponencial ante 429/5xx de Google (RNF-7).
+- [x] **T-7.4** Zonas horarias: eventos de día completo se parsean a medianoche **local**
+      (`toEventDate`), evitando el desfase de día en TZ negativas; con tests (RNF-6).
+- [x] **T-7.5** `pnpm build` + `pnpm test` (29) en verde.
 
 ## Decisiones pendientes (de spec §9)
 

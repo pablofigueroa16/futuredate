@@ -1,4 +1,5 @@
-import { isSameDay } from 'date-fns'
+import { format, isSameDay } from 'date-fns'
+import { es } from 'date-fns/locale'
 import { Pin, Star } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useElementSize } from '../hooks/use-element-size'
@@ -86,7 +87,8 @@ function GridSurface({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 onClick={() => handleClick(day)}
-                aria-label={`${day.key}: ${day.count} eventos`}
+                aria-label={`${format(day.date, "EEEE d 'de' MMMM", { locale: es })}: ${day.count} evento${day.count === 1 ? '' : 's'}${day.pinned ? ', fijado' : ''}`}
+                aria-current={isSameDay(day.date, now) ? 'date' : undefined}
                 style={{ width: w, height: h }}
                 className="relative overflow-hidden rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >

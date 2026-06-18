@@ -42,14 +42,16 @@ Specs vivas en [`specs/`](./specs).
 
 ## Estado
 
-🟢 **Fase 6 completada** — escritura y metadatos propios. **Fase 5**: crear/editar/borrar
-eventos en Google (modal clásico, confirm al borrar, invalidación); mover = editar la fecha
-(drag con dnd-kit queda pendiente). **Fase 6**: fijar ★ (aparece en la franja y se marca en
-la grilla), etiquetas (crear/asignar) y recordatorio por evento, persistidos en Neon y
-reflejados tras recargar. La **grilla zoomable estilo GitHub** (Fase 4) sigue siendo el
-centro. Corre en **:3100**. **27 tests**, `build`/`tsc`/`lint` en verde. Siguiente: **Fase 7**
-(pulido: accesibilidad, rate limits, zonas horarias). Ver
-[`tasks.md`](./specs/001-agenda-cuenta-regresiva/tasks.md).
+🟢 **Las 7 fases completadas (MVP).** Auth Google + DB Neon, lógica de tiempo testeada,
+franja "Próximo" con cuenta regresiva en vivo, **grilla zoomable estilo GitHub** (el
+protagonista), crear/editar/borrar eventos en Google, y metadatos propios (fijar ★,
+etiquetas, recordatorios). Pulido: reintentos ante rate limits, zonas horarias correctas
+(día completo en local) y accesibilidad básica. Corre en **:3100**. **29 tests**,
+`build`/`tsc`/`lint` en verde.
+
+**Pendiente / abierto** (no bloqueante): arrastrar para mover (T-5.3), multi-año, notificación
+del navegador, quick-add por lenguaje natural. Ver
+[`tasks.md`](./specs/001-agenda-cuenta-regresiva/tasks.md) §"Decisiones pendientes".
 
 ## Desarrollo
 

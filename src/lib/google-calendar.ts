@@ -30,6 +30,20 @@ const GoogleEventsList = z.object({
 
 const CALENDAR = 'primary'
 const BASE = `https://www.googleapis.com/calendar/v3/calendars/${CALENDAR}/events`
+const MAX_RETRIES = 3
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Convierte el valor de fecha de Google a un instante `Date`.
+ * - Con hora (`dateTime`) trae offset, así que es un instante absoluto.
+ * - De día completo (`date`, 'YYYY-MM-DD') se interpreta como medianoche
+ *   **local**, no UTC: si no, en zonas con offset negativo el evento se
+ *   "adelantaría" un día (RNF-6).
+ */
+export function toEventDate(raw: string, allDay: boolean): Date {
+  return allDay ? new Date(`${raw}T00:00:00`) : new Date(raw)
+}
 
 /** Mapea un evento de Google a nuestro `CalendarEvent`, o null si no es utilizable. */
 function mapGoogleEvent(g: GoogleEventT): CalendarEvent | null {
@@ -41,8 +55,8 @@ function mapGoogleEvent(g: GoogleEventT): CalendarEvent | null {
   return {
     id: g.id,
     title: g.summary?.trim() || '(sin título)',
-    start: new Date(startRaw),
-    end: new Date(endRaw ?? startRaw),
+    start: toEventDate(startRaw, allDay),
+    end: toEventDate(endRaw ?? startRaw, allDay),
     allDay,
     location: g.location,
     description: g.description,
@@ -53,6 +67,7 @@ async function googleFetch(
   token: string,
   path: string,
   init?: RequestInit,
+  attempt = 0,
 ): Promise<Response> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
@@ -63,6 +78,11 @@ async function googleFetch(
     },
   })
   if (!res.ok && res.status !== 204) {
+    // Rate limit (429) o errores transitorios (5xx): reintenta con backoff.
+    if ((res.status === 429 || res.status >= 500) && attempt < MAX_RETRIES) {
+      await sleep(2 ** attempt * 400)
+      return googleFetch(token, path, init, attempt + 1)
+    }
     const body = await res.text()
     throw new Error(`Google Calendar API ${res.status}: ${body.slice(0, 200)}`)
   }
