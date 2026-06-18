@@ -42,9 +42,10 @@ Specs vivas en [`specs/`](./specs).
 
 ## Estado
 
-🟢 **Fase 0 completada** — scaffold de TanStack Start funcionando (`pnpm dev`, `pnpm build`
-y `tsc` en verde), credenciales Google OAuth y proyecto Neon listos en `.env`. Siguiente:
-**Fase 1** (auth con better-auth + DB con Drizzle). Ver
+🟢 **Fase 1 completada** — auth (better-auth + Google) y DB (Drizzle + Neon) cableados y
+verificados: 7 tablas migradas a Neon, `/api/auth/*` responde, `/login` sirve, y
+`build`/`tsc`/`lint` en verde. Falta solo la prueba interactiva del login (T-1.7), que
+requiere el puerto 3000 libre. Siguiente: **Fase 2** (lógica pura de tiempo, TDD). Ver
 [`tasks.md`](./specs/001-agenda-cuenta-regresiva/tasks.md).
 
 ## Desarrollo

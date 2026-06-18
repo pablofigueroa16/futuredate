@@ -21,14 +21,20 @@
 
 ## Fase 1 — Base de datos y autenticación
 
-- [ ] **T-1.1** Instalar y configurar Drizzle + driver Neon serverless.
-- [ ] **T-1.2** Instalar better-auth; configurar provider Google con los scopes del plan §7.
-- [ ] **T-1.3** Esquema Drizzle: tablas de better-auth + `event_metadata` (con `pinned`),
-      `tag`, `event_tag`.
-- [ ] **T-1.4** Generar y aplicar la primera migración a Neon.
-- [ ] **T-1.5** Ruta `/api/auth/$` (handler better-auth) y página `/login` con botón Google.
-- [ ] **T-1.6** Helper `requireSession()` y `getGoogleClient(session)` con refresh de token.
-- [ ] **T-1.7** Verificar: login → consent → sesión persistida → refresh funciona.
+- [x] **T-1.1** Instalar y configurar Drizzle + driver Neon serverless. *(`src/db/`)*
+- [x] **T-1.2** Instalar better-auth; configurar provider Google con los scopes del plan §7.
+      *(`src/auth/server.ts`; `accessType: offline`, `prompt: consent`)*
+- [x] **T-1.3** Esquema Drizzle: tablas de better-auth + `event_metadata` (con `pinned`),
+      `tag`, `event_tag`. *(`src/db/schema.ts`)*
+- [x] **T-1.4** Generar y aplicar la primera migración a Neon. *(7 tablas verificadas vía
+      MCP en el proyecto `sweet-sun-02862383`)*
+- [x] **T-1.5** Ruta `/api/auth/$` (handler better-auth) y página `/login` con botón Google.
+      *(`/api/auth/ok` → `{ok:true}`, `/api/auth/get-session` → `null`, `/login` → 200)*
+- [x] **T-1.6** Helper `requireSession()` y `getGoogleAccessToken()` con refresh de token.
+      *(`src/auth/session.ts`)*
+- [~] **T-1.7** Verificar: login → consent → sesión persistida → refresh funciona.
+      *(endpoints verificados; el click-through de Google requiere :3000 libre — ver nota
+      de puerto. Pendiente de prueba interactiva por el usuario.)*
 
 ## Fase 2 — Lógica pura (TDD)
 
