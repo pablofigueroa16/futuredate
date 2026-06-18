@@ -11,10 +11,13 @@
       `strict`, `noUnusedLocals/Parameters`, `noFallthroughCasesInSwitch`)*
 - [x] **T-0.4** Crear `.env.example` con las variables del plan §8 y `.gitignore`.
 - [x] **T-0.5** `git init` y commit inicial del scaffold + specs.
-- [ ] **T-0.6** *(prerrequisito del usuario)* Crear proyecto en Google Cloud Console,
+- [x] **T-0.6** *(prerrequisito del usuario)* Crear proyecto en Google Cloud Console,
       habilitar Google Calendar API, crear credenciales OAuth (Web), añadir
-      `http://localhost:3000/api/auth/callback/google` como redirect URI.
-- [ ] **T-0.7** *(yo, vía Neon MCP)* Crear el proyecto/branch Neon y obtener `DATABASE_URL`.
+      `http://localhost:3000/api/auth/callback/google` como redirect URI. *(credenciales
+      en `.env`)*
+- [x] **T-0.7** Crear el proyecto/branch Neon y obtener `DATABASE_URL`. *(vía Neon MCP:
+      proyecto `futuredate` = project_id `sweet-sun-02862383`, branch `main`, DB `neondb`,
+      Postgres 18; connection string pooled en `.env`)*
 
 ## Fase 1 — Base de datos y autenticación
 

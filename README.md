@@ -43,8 +43,8 @@ Specs vivas en [`specs/`](./specs).
 ## Estado
 
 🟢 **Fase 0 completada** — scaffold de TanStack Start funcionando (`pnpm dev`, `pnpm build`
-y `tsc` en verde). Pendiente en Fase 0: credenciales Google OAuth (T-0.6, tú) y proyecto
-Neon (T-0.7). Siguiente: **Fase 1** (auth + DB). Ver
+y `tsc` en verde), credenciales Google OAuth y proyecto Neon listos en `.env`. Siguiente:
+**Fase 1** (auth con better-auth + DB con Drizzle). Ver
 [`tasks.md`](./specs/001-agenda-cuenta-regresiva/tasks.md).
 
 ## Desarrollo
