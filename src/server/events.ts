@@ -2,12 +2,12 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { redirect } from '@tanstack/react-router'
 import { eachDayOfInterval, subDays } from 'date-fns'
-import { and, eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { auth } from '../auth/server'
 import { getGoogleAccessToken } from '../auth/session'
 import { db } from '../db'
-import { eventMetadata } from '../db/schema'
+import { eventMetadata, eventTag, tag } from '../db/schema'
 import { dayKey } from '../lib/format'
 import { fetchUpcomingEvents } from '../lib/google-calendar'
 import { getNextEvent } from '../lib/time'
@@ -15,13 +15,24 @@ import { rangeForLevel } from '../lib/zoom'
 import type { ZoomLevelId } from '../lib/zoom'
 import type { CalendarEvent } from '../lib/calendar-event'
 
+export interface TagLite {
+  name: string
+  color: string
+}
+
+/** Evento de la grilla enriquecido con nuestros metadatos (★ y etiquetas). */
+export interface GridEvent extends CalendarEvent {
+  pinned: boolean
+  tags: TagLite[]
+}
+
 /** Una celda-día de la grilla. `events` solo se puebla en niveles finos (≤ 2). */
 export interface DayCell {
   key: string // yyyy-MM-dd
   date: Date
   count: number
   pinned: boolean
-  events: CalendarEvent[]
+  events: GridEvent[]
 }
 
 export interface CalendarView {
@@ -64,12 +75,48 @@ export const loadCalendarView = createServerFn({ method: 'GET' })
     const focus = new Date(`${data.date}T12:00:00`)
     const range = rangeForLevel(level, focus)
 
-    // Ids fijados (★) del usuario.
-    const pinnedRows = await db
-      .select({ googleEventId: eventMetadata.googleEventId })
+    // Metadatos propios del usuario (★ + etiquetas), indexados por googleEventId.
+    const metaRows = await db
+      .select({
+        id: eventMetadata.id,
+        googleEventId: eventMetadata.googleEventId,
+        pinned: eventMetadata.pinned,
+      })
       .from(eventMetadata)
-      .where(and(eq(eventMetadata.userId, userId), eq(eventMetadata.pinned, true)))
-    const pinnedIds = new Set(pinnedRows.map((r) => r.googleEventId))
+      .where(eq(eventMetadata.userId, userId))
+    const metaIds = metaRows.map((m) => m.id)
+    const tagRows = metaIds.length
+      ? await db
+          .select({
+            emId: eventTag.eventMetadataId,
+            name: tag.name,
+            color: tag.color,
+          })
+          .from(eventTag)
+          .innerJoin(tag, eq(tag.id, eventTag.tagId))
+          .where(inArray(eventTag.eventMetadataId, metaIds))
+      : []
+    const tagsByMetaId = new Map<string, TagLite[]>()
+    for (const t of tagRows) {
+      const list = tagsByMetaId.get(t.emId)
+      const lite = { name: t.name, color: t.color }
+      if (list) list.push(lite)
+      else tagsByMetaId.set(t.emId, [lite])
+    }
+    const metaByEventId = new Map<string, { pinned: boolean; tags: TagLite[] }>()
+    for (const m of metaRows) {
+      metaByEventId.set(m.googleEventId, {
+        pinned: m.pinned,
+        tags: tagsByMetaId.get(m.id) ?? [],
+      })
+    }
+    const pinnedIds = new Set(metaRows.filter((m) => m.pinned).map((m) => m.googleEventId))
+
+    const toGrid = (e: CalendarEvent): GridEvent => ({
+      ...e,
+      pinned: metaByEventId.get(e.id)?.pinned ?? false,
+      tags: metaByEventId.get(e.id)?.tags ?? [],
+    })
 
     // Franja "Próximo": próximos eventos desde ahora.
     const upcoming = await fetchUpcomingEvents(token, { timeMin: now, maxResults: 50 })
@@ -84,12 +131,12 @@ export const loadCalendarView = createServerFn({ method: 'GET' })
     })
 
     const fineLevel = level <= 2
-    const byDay = new Map<string, CalendarEvent[]>()
+    const byDay = new Map<string, GridEvent[]>()
     for (const e of inRange) {
       const k = dayKey(new Date(e.start))
       const list = byDay.get(k)
-      if (list) list.push(e)
-      else byDay.set(k, [e])
+      if (list) list.push(toGrid(e))
+      else byDay.set(k, [toGrid(e)])
     }
 
     const days: DayCell[] = eachDayOfInterval({

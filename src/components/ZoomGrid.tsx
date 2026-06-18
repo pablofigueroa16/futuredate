@@ -1,5 +1,5 @@
 import { isSameDay } from 'date-fns'
-import { Pin } from 'lucide-react'
+import { Pin, Star } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useElementSize } from '../hooks/use-element-size'
 import { layoutForLevel } from '../lib/zoom'
@@ -199,7 +199,20 @@ function DayColumn({
                         minute: '2-digit',
                       })}
                 </span>
-                <span className="font-medium text-neutral-900">{e.title}</span>
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  {e.pinned && (
+                    <Star size={13} className="shrink-0 text-amber-500" fill="currentColor" />
+                  )}
+                  <span className="truncate font-medium text-neutral-900">{e.title}</span>
+                  {e.tags.map((t) => (
+                    <span
+                      key={t.name}
+                      title={t.name}
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: t.color }}
+                    />
+                  ))}
+                </span>
               </button>
             </li>
           ))}

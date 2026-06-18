@@ -106,10 +106,13 @@
 
 ## Fase 6 — Fijar y metadatos propios
 
-- [ ] **T-6.1** Server functions `setEventMetadata` (incl. `pinned`), `listTags`, `createTag`.
-- [ ] **T-6.2** Acción "fijar ★" en el detalle → aparece en franja y se marca en la grilla.
-- [ ] **T-6.3** UI de etiquetas y antelación de recordatorio en el detalle del evento.
-- [ ] **T-6.4** Persistencia tras recargar (RF-10).
+- [x] **T-6.1** Server functions `setEventMetadata` (incl. `pinned`), `getEventMetadata`,
+      `listTags`, `createTag`. *(`src/server/metadata.ts`; upsert + reemplazo de etiquetas)*
+- [x] **T-6.2** Acción "fijar ★" en el modal de edición → aparece en la franja (pinnedUpcoming)
+      y se marca en la grilla (★ por celda y por evento en vista Día).
+- [x] **T-6.3** UI de etiquetas (toggle + crear) y recordatorio (select) en el modal de edición.
+- [x] **T-6.4** Persistencia tras recargar: `loadCalendarView` enriquece los eventos con
+      `pinned`+`tags`; `getEventMetadata` rellena el form al reabrir (RF-10).
 
 ## Fase 7 — Pulido y cierre
 

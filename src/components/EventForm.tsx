@@ -1,8 +1,30 @@
 import { addDays, format, parseISO } from 'date-fns'
-import { Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import { Star, Trash2, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import type { CalendarEvent } from '../lib/calendar-event'
 import { createEvent, deleteEvent, updateEvent } from '../server/event-mutations'
+import {
+  createTag,
+  getEventMetadata,
+  listTags,
+  setEventMetadata,
+} from '../server/metadata'
+
+const REMINDER_OPTIONS: { label: string; value: number | null }[] = [
+  { label: 'Sin recordatorio', value: null },
+  { label: '10 minutos antes', value: 10 },
+  { label: '30 minutos antes', value: 30 },
+  { label: '1 hora antes', value: 60 },
+  { label: '1 día antes', value: 1440 },
+]
+
+const TAG_PALETTE = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
+
+interface TagRow {
+  id: string
+  name: string
+  color: string
+}
 
 const toLocalInput = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm")
 const toDateInput = (d: Date) => format(d, 'yyyy-MM-dd')
@@ -39,6 +61,43 @@ export function EventForm({
   const [busy, setBusy] = useState<null | 'save' | 'delete'>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Metadatos propios (solo en edición, porque se indexan por id de Google).
+  const [pinned, setPinned] = useState(false)
+  const [reminderLead, setReminderLead] = useState<number | null>(null)
+  const [notes, setNotes] = useState<string | null>(null)
+  const [tagIds, setTagIds] = useState<string[]>([])
+  const [allTags, setAllTags] = useState<TagRow[]>([])
+  const [newTag, setNewTag] = useState('')
+
+  useEffect(() => {
+    if (mode !== 'edit' || !event) return
+    void listTags().then(setAllTags)
+    void getEventMetadata({ data: { googleEventId: event.id } }).then((m) => {
+      setPinned(m.pinned)
+      setReminderLead(m.reminderLead)
+      setNotes(m.notes)
+      setTagIds(m.tagIds)
+    })
+  }, [mode, event])
+
+  function toggleTag(id: string) {
+    setTagIds((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]))
+  }
+
+  async function handleCreateTag() {
+    const name = newTag.trim()
+    if (!name) return
+    const color = TAG_PALETTE[allTags.length % TAG_PALETTE.length]
+    const created = await createTag({ data: { name, color } })
+    if (created) {
+      setAllTags((prev) =>
+        prev.some((t) => t.id === created.id) ? prev : [...prev, created],
+      )
+      setTagIds((prev) => [...prev, created.id])
+    }
+    setNewTag('')
+  }
+
   // Al cambiar allDay, reformatea los inputs de fecha.
   function toggleAllDay(next: boolean) {
     const s = parseLoose(start)
@@ -73,6 +132,9 @@ export function EventForm({
       const payload = buildPayload()
       if (mode === 'edit' && event) {
         await updateEvent({ data: { id: event.id, ...payload } })
+        await setEventMetadata({
+          data: { googleEventId: event.id, pinned, reminderLead, notes, tagIds },
+        })
       } else {
         await createEvent({ data: payload })
       }
@@ -175,6 +237,79 @@ export function EventForm({
             className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2"
           />
         </label>
+
+        {mode === 'edit' && (
+          <div className="mt-4 space-y-3 border-t border-neutral-200 pt-3">
+            <button
+              type="button"
+              onClick={() => setPinned((p) => !p)}
+              className={`flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium ${
+                pinned ? 'text-amber-600' : 'text-neutral-600 hover:bg-neutral-100'
+              }`}
+            >
+              <Star size={16} fill={pinned ? 'currentColor' : 'none'} />
+              {pinned ? 'Fijado (aparece en la franja)' : 'Fijar ★'}
+            </button>
+
+            <label className="block text-sm font-medium">
+              Recordatorio
+              <select
+                value={reminderLead === null ? '' : String(reminderLead)}
+                onChange={(e) =>
+                  setReminderLead(e.target.value === '' ? null : Number(e.target.value))
+                }
+                className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-2"
+              >
+                {REMINDER_OPTIONS.map((o) => (
+                  <option key={o.label} value={o.value === null ? '' : String(o.value)}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div>
+              <p className="text-sm font-medium">Etiquetas</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {allTags.map((t) => {
+                  const on = tagIds.includes(t.id)
+                  return (
+                    <button
+                      type="button"
+                      key={t.id}
+                      onClick={() => toggleTag(t.id)}
+                      className={`rounded-full border px-2 py-0.5 text-xs ${
+                        on ? 'text-white' : 'text-neutral-700'
+                      }`}
+                      style={
+                        on
+                          ? { backgroundColor: t.color, borderColor: t.color }
+                          : { borderColor: t.color }
+                      }
+                    >
+                      {t.name}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="mt-2 flex gap-2">
+                <input
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  placeholder="Nueva etiqueta"
+                  className="flex-1 rounded-md border border-neutral-300 px-2 py-1 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateTag}
+                  className="rounded-md border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-50"
+                >
+                  Añadir
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
