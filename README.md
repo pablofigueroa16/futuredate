@@ -42,11 +42,12 @@ Specs vivas en [`specs/`](./specs).
 
 ## Estado
 
-🟢 **Fase 3 completada** — franja "Próximo" sticky con SSR del próximo evento (leído de
-Google Calendar vía server function), cuenta regresiva en vivo sin desajuste de hidratación,
-tarjetas de fijados ★, y estados vacío/cargando/error. Ruta de servidor verificada en
-runtime (guard + redirects); **27 tests en verde**, `build`/`tsc`/`lint` limpios. Falta solo
-la confirmación visual autenticada en navegador. Siguiente: **Fase 4** (grilla zoomable). Ver
+🟢 **Fase 4 completada** — la **grilla zoomable estilo GitHub** (el protagonista): 5 niveles
+(Día/Semana/Mes/Trimestre/Año) con `level`/`date` en la URL, celdas dimensionadas al viewport
+para caber **sin scroll**, renderers por nivel (chips→dots→heatmap), layout del año en
+columnas de semana, transición animada con `motion`, marca ★ y click-para-zoom. Server
+function `loadCalendarView` lee Google y agrega por día. Corre en **:3100**. **27 tests**,
+`build`/`tsc`/`lint` en verde. Siguiente: **Fase 5** (crear/editar/borrar/mover eventos). Ver
 [`tasks.md`](./specs/001-agenda-cuenta-regresiva/tasks.md).
 
 ## Desarrollo

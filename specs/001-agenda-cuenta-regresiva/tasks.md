@@ -70,17 +70,26 @@
 
 ## Fase 4 — Grilla zoomable (el protagonista)
 
-- [ ] **T-4.1** Server functions `listEventsInRange` y `getEventCountsByDay` (Zod).
-- [ ] **T-4.2** `<ZoomGrid>` con control de nivel; `level` y `date` en search params (URL).
-- [ ] **T-4.3** Medición de viewport → **tamaño de celda = f(viewport, columnas)**; garantizar
-      "todo cabe sin scroll" en cada nivel (RF-4, RNF-2).
-- [ ] **T-4.4** Renderers de celda por nivel: `full`/`blocks`/`chips`/`dots`/`heatmap` (RF-6).
-- [ ] **T-4.5** Layout adaptable: Mes 7-ancho; **Año estilo GitHub** (semanas en columnas) (RF-5).
-- [ ] **T-4.6** Transición animada entre niveles con Framer Motion (`layoutId` por día) (RF-5).
-- [ ] **T-4.7** Marca ★ en la celda en los 5 niveles (RF-7).
-- [ ] **T-4.8** Interacción: Trimestre/Año click → baja de nivel sobre esa fecha (RF-9).
-- [ ] **Checkpoint:** en nivel Año, todos los eventos del año caben **sin scroll**; subir de
+- [x] **T-4.1** Server function `loadCalendarView` (Zod): eventos del rango + agregados por
+      día; finos llevan eventos, gruesos solo conteo (heatmap). *(`src/server/events.ts`)*
+- [x] **T-4.2** `<ZoomGrid>` + `<ZoomControl>`; `level` y `date` en search params de `/app`
+      (back/forward navega el zoom).
+- [x] **T-4.3** Medición de viewport (`useElementSize`) → tamaño de celda = f(viewport,
+      cols/filas); la grilla se centra y cabe sin scroll (RF-4, RNF-2).
+- [x] **T-4.4** Renderers de celda por nivel: `full` (día), `blocks` (semana), `chips` (mes),
+      `dots` (trimestre), `heatmap` (año) (RF-6).
+- [x] **T-4.5** Layout adaptable: Mes/Trimestre 7-ancho; **Año estilo GitHub** (semanas en
+      columnas, 7 filas) (RF-5).
+- [x] **T-4.6** Transición animada entre niveles con `motion` (`layout` + key por día,
+      enter/exit) (RF-5).
+- [x] **T-4.7** Marca ★ (pin) en la celda en todos los niveles cuando el día tiene un
+      evento fijado (RF-7).
+- [x] **T-4.8** Interacción: Trimestre/Año click → baja un nivel sobre esa fecha; Mes/Semana
+      → salta al Día (RF-9). Navegación ◀ ▶ por periodo + botón "Hoy".
+- [~] **Checkpoint:** en nivel Año, todos los eventos del año caben **sin scroll**; subir de
       nivel anima los cuadrados; un evento a 40 días se ve marcado. 🎯
+      *(código y build verificados; confirmación visual autenticada pendiente en el
+      navegador del usuario)*
 
 ## Fase 5 — Escritura (crear / editar / borrar / mover)
 

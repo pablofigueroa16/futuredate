@@ -1,12 +1,30 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { addDays, addMonths, addYears } from 'date-fns'
 import { NextEventHero } from '../components/NextEventHero'
-import type { CalendarEvent } from '../lib/calendar-event'
-import { formatEventWhen } from '../lib/format'
-import { formatTimeUntil, timeUntil } from '../lib/time'
-import { loadAppData } from '../server/events'
+import { ZoomControl } from '../components/ZoomControl'
+import { ZoomGrid } from '../components/ZoomGrid'
+import { dayKey } from '../lib/format'
+import type { ZoomLevelId } from '../lib/zoom'
+import { loadCalendarView } from '../server/events'
+
+interface AppSearch {
+  level: ZoomLevelId
+  date: string // yyyy-MM-dd
+}
 
 export const Route = createFileRoute('/app')({
-  loader: () => loadAppData(),
+  validateSearch: (search: Record<string, unknown>): AppSearch => {
+    const lvl = Number(search.level)
+    const level = (Number.isInteger(lvl) && lvl >= 0 && lvl <= 4 ? lvl : 2) as ZoomLevelId
+    const date =
+      typeof search.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.date)
+        ? search.date
+        : dayKey(new Date())
+    return { level, date }
+  },
+  loaderDeps: ({ search }) => ({ level: search.level, date: search.date }),
+  loader: ({ deps }) =>
+    loadCalendarView({ data: { level: deps.level, date: deps.date } }),
   component: AppPage,
   pendingComponent: () => (
     <p className="p-8 text-center text-neutral-500">Cargando tu calendario…</p>
@@ -21,42 +39,52 @@ export const Route = createFileRoute('/app')({
 
 function AppPage() {
   const data = Route.useLoaderData()
+  const { level, date } = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+
   const now = new Date(data.now)
+  const focus = new Date(`${date}T12:00:00`)
+  const days = data.days.map((d) => ({
+    ...d,
+    date: new Date(d.date),
+    events: d.events.map((e) => ({ ...e, start: new Date(e.start), end: new Date(e.end) })),
+  }))
+
+  const go = (nextLevel: ZoomLevelId, nextDate: string) =>
+    navigate({ search: { level: nextLevel, date: nextDate } })
+
+  const shiftPeriod = (dir: -1 | 1) => {
+    const f = focus
+    const moved =
+      level === 0
+        ? addDays(f, dir)
+        : level === 1
+          ? addDays(f, 7 * dir)
+          : level === 2
+            ? addMonths(f, dir)
+            : level === 3
+              ? addMonths(f, 3 * dir)
+              : addYears(f, dir)
+    go(level, dayKey(moved))
+  }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <NextEventHero nextEvent={data.nextEvent} pinned={data.pinned} now={now} />
-      <main className="mx-auto max-w-3xl p-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
-          Próximos eventos
-        </h2>
-        {data.upcoming.length === 0 ? (
-          <p className="text-neutral-500">No hay eventos futuros.</p>
-        ) : (
-          <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 bg-white">
-            {data.upcoming.map((event) => (
-              <UpcomingRow key={event.id} event={event} now={now} />
-            ))}
-          </ul>
-        )}
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <NextEventHero
+        nextEvent={data.nextEvent}
+        pinned={data.pinnedUpcoming}
+        now={now}
+      />
+      <ZoomControl
+        level={level}
+        focus={focus}
+        onSetLevel={(l) => go(l, date)}
+        onShiftPeriod={shiftPeriod}
+        onToday={() => go(level, dayKey(new Date()))}
+      />
+      <main className="min-h-0 flex-1 p-3">
+        <ZoomGrid level={level} days={days} now={now} onZoom={go} />
       </main>
     </div>
-  )
-}
-
-function UpcomingRow({ event, now }: { event: CalendarEvent; now: Date }) {
-  const t = timeUntil(new Date(event.start), now)
-  return (
-    <li className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0">
-        <p className="truncate font-medium text-neutral-900">{event.title}</p>
-        <p className="truncate text-sm text-neutral-500">
-          {formatEventWhen(event, now)}
-        </p>
-      </div>
-      <span className="shrink-0 text-sm text-neutral-400">
-        en {formatTimeUntil(t)}
-      </span>
-    </li>
   )
 }
