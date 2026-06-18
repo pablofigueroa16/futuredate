@@ -42,10 +42,10 @@ Specs vivas en [`specs/`](./specs).
 
 ## Estado
 
-🟢 **Fase 1 completada y verificada** — auth (better-auth + Google) y DB (Drizzle + Neon)
-funcionando de punta a punta: login real exitoso con refresh token persistido en Neon, 7
-tablas migradas, `/api/auth/*` operativo, y `build`/`tsc`/`lint` en verde. Siguiente:
-**Fase 2** (lógica pura de tiempo, TDD). Ver
+🟢 **Fase 2 completada** — lógica pura de tiempo y zoom con TDD (date-fns): `getNextEvent`,
+`timeUntil` (inmune a DST), `rangeForLevel` y `layoutForLevel`, con **23 tests en verde**.
+La Fase 1 (auth Google + DB Neon) ya estaba verificada de punta a punta. Siguiente:
+**Fase 3** (franja "Próximo" con cuenta regresiva en vivo). Ver
 [`tasks.md`](./specs/001-agenda-cuenta-regresiva/tasks.md).
 
 ## Desarrollo

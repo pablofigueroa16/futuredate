@@ -38,11 +38,19 @@
 
 ## Fase 2 — Lógica pura (TDD)
 
-- [ ] **T-2.1** Decidir librería de fechas (date-fns vs Temporal) y justificar.
-- [ ] **T-2.2** Tests + impl de `getNextEvent(events, now)` (vacío, todo pasado, cruce mes/año).
-- [ ] **T-2.3** Tests + impl de `timeUntil(start, now)` (minutos, días, cruce de año, DST).
-- [ ] **T-2.4** Tests + impl de `rangeForLevel(level, focusDate)` (rango de cada nivel 0–4).
-- [ ] **T-2.5** Tests + impl de `layoutForLevel(level)` (columnas/filas y renderer; año = GitHub).
+- [x] **T-2.1** Decidir librería de fechas (date-fns vs Temporal) y justificar. *(date-fns 4:
+      maduro, tree-shakeable, sin polyfill pesado; `timeUntil` usa ms UTC → inmune a DST)*
+- [x] **T-2.2** Tests + impl de `getNextEvent(events, now)` (vacío, todo pasado, cruce mes/año,
+      en curso, desordenado). *(`src/lib/time.ts`)*
+- [x] **T-2.3** Tests + impl de `timeUntil(start, now)` (minutos, días, cruce de año, DST).
+      *(`src/lib/time.ts`)*
+- [x] **T-2.4** Tests + impl de `rangeForLevel(level, focusDate)` (rango de cada nivel 0–4,
+      expandido a semanas completas). *(`src/lib/zoom.ts`)*
+- [x] **T-2.5** Tests + impl de `layoutForLevel(level)` (renderer por nivel; año = GitHub,
+      semanas en columnas). *(`src/lib/zoom.ts`)*
+
+> ✅ 23 tests en verde (`time.test.ts`, `zoom.test.ts`); tipo `CalendarEvent` compartido en
+> `src/lib/calendar-event.ts`.
 
 ## Fase 3 — Franja "Próximo"
 
