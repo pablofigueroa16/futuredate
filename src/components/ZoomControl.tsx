@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { formatPeriod } from '../lib/format'
 import { ZOOM_LEVELS } from '../lib/zoom'
 import type { ZoomLevelId } from '../lib/zoom'
@@ -11,12 +11,14 @@ export function ZoomControl({
   onSetLevel,
   onShiftPeriod,
   onToday,
+  onCreate,
 }: {
   level: ZoomLevelId
   focus: Date
   onSetLevel: (level: ZoomLevelId) => void
   onShiftPeriod: (dir: -1 | 1) => void
   onToday: () => void
+  onCreate: () => void
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-2">
@@ -46,28 +48,36 @@ export function ZoomControl({
         </button>
       </div>
 
-      <div
-        className="flex rounded-lg border border-neutral-200 p-0.5"
-        role="group"
-        aria-label="Nivel de zoom"
-      >
-        {LEVEL_IDS.map((id) => {
-          const active = id === level
-          return (
-            <button
-              key={id}
-              onClick={() => onSetLevel(id)}
-              aria-pressed={active}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                active
-                  ? 'bg-neutral-900 text-white'
-                  : 'text-neutral-600 hover:bg-neutral-100'
-              }`}
-            >
-              {ZOOM_LEVELS[id].name}
-            </button>
-          )
-        })}
+      <div className="flex items-center gap-2">
+        <div
+          className="flex rounded-lg border border-neutral-200 p-0.5"
+          role="group"
+          aria-label="Nivel de zoom"
+        >
+          {LEVEL_IDS.map((id) => {
+            const active = id === level
+            return (
+              <button
+                key={id}
+                onClick={() => onSetLevel(id)}
+                aria-pressed={active}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  active
+                    ? 'bg-neutral-900 text-white'
+                    : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                {ZOOM_LEVELS[id].name}
+              </button>
+            )
+          })}
+        </div>
+        <button
+          onClick={onCreate}
+          className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+        >
+          <Plus size={15} /> Crear
+        </button>
       </div>
     </div>
   )

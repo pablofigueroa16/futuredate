@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useElementSize } from '../hooks/use-element-size'
 import { layoutForLevel } from '../lib/zoom'
 import type { ZoomLevelId } from '../lib/zoom'
+import type { CalendarEvent } from '../lib/calendar-event'
 import type { DayCell } from '../server/events'
 
 const GAP = 3
@@ -13,13 +14,16 @@ export function ZoomGrid({
   days,
   now,
   onZoom,
+  onSelectEvent,
 }: {
   level: ZoomLevelId
   days: DayCell[]
   now: Date
   onZoom: (level: ZoomLevelId, dateKey: string) => void
+  onSelectEvent: (event: CalendarEvent) => void
 }) {
-  if (level === 0) return <DayColumn day={days[0]} now={now} />
+  if (level === 0)
+    return <DayColumn day={days[0]} now={now} onSelectEvent={onSelectEvent} />
   return <GridSurface level={level} days={days} now={now} onZoom={onZoom} />
 }
 
@@ -165,7 +169,15 @@ function Cell({
   )
 }
 
-function DayColumn({ day, now }: { day: DayCell | undefined; now: Date }) {
+function DayColumn({
+  day,
+  now,
+  onSelectEvent,
+}: {
+  day: DayCell | undefined
+  now: Date
+  onSelectEvent: (event: CalendarEvent) => void
+}) {
   if (!day) return null
   return (
     <div className="mx-auto h-full w-full max-w-lg overflow-y-auto p-2">
@@ -174,19 +186,21 @@ function DayColumn({ day, now }: { day: DayCell | undefined; now: Date }) {
       ) : (
         <ul className="space-y-2">
           {day.events.map((e) => (
-            <li
-              key={e.id}
-              className="flex items-baseline gap-3 rounded-lg border border-neutral-200 bg-white p-3"
-            >
-              <span className="w-12 shrink-0 text-sm tabular-nums text-neutral-500">
-                {e.allDay
-                  ? 'Todo'
-                  : new Date(e.start).toLocaleTimeString('es', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-              </span>
-              <span className="font-medium text-neutral-900">{e.title}</span>
+            <li key={e.id}>
+              <button
+                onClick={() => onSelectEvent(e)}
+                className="flex w-full items-baseline gap-3 rounded-lg border border-neutral-200 bg-white p-3 text-left hover:border-neutral-300 hover:bg-neutral-50"
+              >
+                <span className="w-12 shrink-0 text-sm tabular-nums text-neutral-500">
+                  {e.allDay
+                    ? 'Todo'
+                    : new Date(e.start).toLocaleTimeString('es', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                </span>
+                <span className="font-medium text-neutral-900">{e.title}</span>
+              </button>
             </li>
           ))}
         </ul>

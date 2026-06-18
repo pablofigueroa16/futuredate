@@ -1,8 +1,11 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { addDays, addMonths, addYears } from 'date-fns'
+import { useState } from 'react'
+import { EventForm } from '../components/EventForm'
 import { NextEventHero } from '../components/NextEventHero'
 import { ZoomControl } from '../components/ZoomControl'
 import { ZoomGrid } from '../components/ZoomGrid'
+import type { CalendarEvent } from '../lib/calendar-event'
 import { dayKey } from '../lib/format'
 import type { ZoomLevelId } from '../lib/zoom'
 import { loadCalendarView } from '../server/events'
@@ -41,6 +44,10 @@ function AppPage() {
   const data = Route.useLoaderData()
   const { level, date } = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const router = useRouter()
+  const [modal, setModal] = useState<
+    { mode: 'new' } | { mode: 'edit'; event: CalendarEvent } | null
+  >(null)
 
   const now = new Date(data.now)
   const focus = new Date(`${date}T12:00:00`)
@@ -81,10 +88,27 @@ function AppPage() {
         onSetLevel={(l) => go(l, date)}
         onShiftPeriod={shiftPeriod}
         onToday={() => go(level, dayKey(new Date()))}
+        onCreate={() => setModal({ mode: 'new' })}
       />
       <main className="min-h-0 flex-1 p-3">
-        <ZoomGrid level={level} days={days} now={now} onZoom={go} />
+        <ZoomGrid
+          level={level}
+          days={days}
+          now={now}
+          onZoom={go}
+          onSelectEvent={(event) => setModal({ mode: 'edit', event })}
+        />
       </main>
+
+      {modal && (
+        <EventForm
+          mode={modal.mode}
+          event={modal.mode === 'edit' ? modal.event : undefined}
+          defaultDate={date}
+          onClose={() => setModal(null)}
+          onSaved={() => router.invalidate()}
+        />
+      )}
     </div>
   )
 }
