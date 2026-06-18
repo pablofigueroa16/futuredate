@@ -32,9 +32,9 @@
       *(`/api/auth/ok` → `{ok:true}`, `/api/auth/get-session` → `null`, `/login` → 200)*
 - [x] **T-1.6** Helper `requireSession()` y `getGoogleAccessToken()` con refresh de token.
       *(`src/auth/session.ts`)*
-- [~] **T-1.7** Verificar: login → consent → sesión persistida → refresh funciona.
-      *(endpoints verificados; el click-through de Google requiere :3000 libre — ver nota
-      de puerto. Pendiente de prueba interactiva por el usuario.)*
+- [x] **T-1.7** Verificar: login → consent → sesión persistida → refresh funciona.
+      *(login real exitoso; user + account con refresh_token guardado en Neon, scopes
+      Calendar+email+profile+openid confirmados vía MCP.)*
 
 ## Fase 2 — Lógica pura (TDD)
 

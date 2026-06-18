@@ -42,10 +42,10 @@ Specs vivas en [`specs/`](./specs).
 
 ## Estado
 
-🟢 **Fase 1 completada** — auth (better-auth + Google) y DB (Drizzle + Neon) cableados y
-verificados: 7 tablas migradas a Neon, `/api/auth/*` responde, `/login` sirve, y
-`build`/`tsc`/`lint` en verde. Falta solo la prueba interactiva del login (T-1.7), que
-requiere el puerto 3000 libre. Siguiente: **Fase 2** (lógica pura de tiempo, TDD). Ver
+🟢 **Fase 1 completada y verificada** — auth (better-auth + Google) y DB (Drizzle + Neon)
+funcionando de punta a punta: login real exitoso con refresh token persistido en Neon, 7
+tablas migradas, `/api/auth/*` operativo, y `build`/`tsc`/`lint` en verde. Siguiente:
+**Fase 2** (lógica pura de tiempo, TDD). Ver
 [`tasks.md`](./specs/001-agenda-cuenta-regresiva/tasks.md).
 
 ## Desarrollo
