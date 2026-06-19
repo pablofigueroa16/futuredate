@@ -1,16 +1,19 @@
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
+  pointerWithin,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import type { DragEndEvent } from '@dnd-kit/core'
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { format, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Pin, Star } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
+import { useState } from 'react'
 import { useElementSize } from '../hooks/use-element-size'
 import { layoutForLevel } from '../lib/zoom'
 import type { ZoomLevelId } from '../lib/zoom'
@@ -18,6 +21,8 @@ import type { CalendarEvent } from '../lib/calendar-event'
 import type { DayCell, GridEvent } from '../server/events'
 
 const GAP = 3
+const CHIP_CLASS =
+  'flex items-center gap-0.5 truncate rounded bg-emerald-100 px-1 text-left text-[10px] leading-tight text-emerald-900'
 
 export function ZoomGrid({
   level,
@@ -64,9 +69,10 @@ function GridSurface({
   onMoveEvent: (event: CalendarEvent, targetDayKey: string) => void
 }) {
   const [ref, { width, height }] = useElementSize<HTMLDivElement>()
-  // Pequeña distancia de activación: distingue click (editar) de arrastre (mover).
+  const [activeEvent, setActiveEvent] = useState<GridEvent | null>(null)
+  // Distancia de activación: distingue click (editar) de arrastre (mover).
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   )
   const layout = layoutForLevel(level)
   const weeks = Math.max(1, Math.round(days.length / 7))
@@ -98,18 +104,27 @@ function GridSurface({
     else onZoom(0, day.key)
   }
 
+  function handleDragStart(e: DragStartEvent) {
+    setActiveEvent((e.active.data.current?.event as GridEvent | undefined) ?? null)
+  }
+
   function handleDragEnd(e: DragEndEvent) {
+    setActiveEvent(null)
     const overId = e.over?.id
     const event = e.active.data.current?.event as GridEvent | undefined
-    if (event && typeof overId === 'string' && overId !== e.active.id) {
-      onMoveEvent(event, overId)
-    }
+    if (event && typeof overId === 'string') onMoveEvent(event, overId)
   }
 
   return (
     <div ref={ref} className="flex h-full w-full items-center justify-center">
       {width > 0 && height > 0 && (
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveEvent(null)}
+        >
           <div className="grid" style={{ ...gridStyle, gap: GAP }}>
             <AnimatePresence initial={false}>
               {days.map((day) =>
@@ -143,6 +158,11 @@ function GridSurface({
               )}
             </AnimatePresence>
           </div>
+
+          {/* Copia flotante del chip arrastrado: por encima de todo y sin recortes. */}
+          <DragOverlay dropAnimation={null}>
+            {activeEvent ? <ChipView event={activeEvent} dragging /> : null}
+          </DragOverlay>
         </DndContext>
       )}
     </div>
@@ -171,8 +191,9 @@ function MonthCell({
   const rest = day.events.length - shown.length
 
   return (
+    // Sin `layout`: la animación de morfología interfería con la detección de
+    // soltado de dnd-kit. Solo opacidad al entrar/salir.
     <motion.div
-      layout
       ref={setNodeRef}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -181,7 +202,7 @@ function MonthCell({
       style={{ width: w, height: h }}
       className={`relative flex flex-col gap-0.5 overflow-hidden rounded border p-1 ${
         isOver
-          ? 'border-blue-400 bg-blue-100'
+          ? 'border-blue-400 bg-blue-100 ring-2 ring-blue-400'
           : today
             ? 'border-blue-500 bg-blue-50'
             : 'border-neutral-200 bg-white'
@@ -204,6 +225,22 @@ function MonthCell({
   )
 }
 
+/** Visual del chip (compartida entre el chip en la celda y la copia flotante). */
+function ChipView({ event, dragging }: { event: GridEvent; dragging?: boolean }) {
+  const color = event.tags[0]?.color
+  return (
+    <div
+      style={{ borderLeft: color ? `3px solid ${color}` : undefined }}
+      className={`${CHIP_CLASS} ${dragging ? 'cursor-grabbing shadow-lg ring-1 ring-emerald-400' : ''}`}
+    >
+      {event.pinned && (
+        <Star size={8} className="shrink-0 text-amber-600" fill="currentColor" />
+      )}
+      <span className="truncate">{event.title}</span>
+    </div>
+  )
+}
+
 function DraggableChip({
   event,
   onSelect,
@@ -211,11 +248,10 @@ function DraggableChip({
   event: GridEvent
   onSelect: (event: CalendarEvent) => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: event.id,
     data: { event },
   })
-  const color = event.tags[0]?.color
   return (
     <button
       ref={setNodeRef}
@@ -225,22 +261,10 @@ function DraggableChip({
         e.stopPropagation()
         onSelect(event)
       }}
-      style={{
-        transform: transform
-          ? `translate(${transform.x}px, ${transform.y}px)`
-          : undefined,
-        opacity: isDragging ? 0.4 : 1,
-        zIndex: isDragging ? 50 : undefined,
-        position: 'relative',
-        borderLeft: color ? `3px solid ${color}` : undefined,
-        touchAction: 'none',
-      }}
-      className="flex items-center gap-0.5 truncate rounded bg-emerald-100 px-1 text-left text-[10px] leading-tight text-emerald-900"
+      style={{ opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
+      className="block w-full cursor-grab"
     >
-      {event.pinned && (
-        <Star size={8} className="shrink-0 text-amber-600" fill="currentColor" />
-      )}
-      <span className="truncate">{event.title}</span>
+      <ChipView event={event} />
     </button>
   )
 }
