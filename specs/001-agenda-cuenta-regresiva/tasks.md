@@ -97,9 +97,9 @@
       *(`src/server/event-mutations.ts`; escritura en `src/lib/google-calendar.ts`)*
 - [x] **T-5.2** Formulario clásico crear/editar (modal `EventForm` sobre la grilla; ＋ Crear
       en la barra, click en evento del Día → editar). *Mover = cambiar la fecha en el form.*
-- [ ] **T-5.3** Arrastrar evento de día con @dnd-kit en Día/Semana/Mes → `updateEvent` (RF-9).
-      *(pendiente; "mover" ya funciona vía formulario. El drag requiere reestructurar las
-      celdas (chips arrastrables, celda droppable) e iteración visual.)*
+- [x] **T-5.3** Arrastrar evento a otro día en vista **Mes** con @dnd-kit → `updateEvent` (RF-9).
+      Chips arrastrables (mover) y clicables (editar) gracias a la distancia de activación;
+      celdas como zonas soltables con resalte. *(`ZoomGrid` + `moveEvent` en `app.tsx`)*
 - [x] **T-5.4** Invalidación del loader (`router.invalidate()`) tras cada mutación;
       `window.confirm` antes de borrar.
 - [ ] **Checkpoint:** crear/editar/borrar/mover se refleja en calendar.google.com. 🎯

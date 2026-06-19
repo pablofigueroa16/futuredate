@@ -1,5 +1,11 @@
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { addDays, addMonths, addYears } from 'date-fns'
+import {
+  addDays,
+  addMonths,
+  addYears,
+  differenceInCalendarDays,
+  startOfDay,
+} from 'date-fns'
 import { useState } from 'react'
 import { EventForm } from '../components/EventForm'
 import { NextEventHero } from '../components/NextEventHero'
@@ -9,6 +15,7 @@ import type { CalendarEvent } from '../lib/calendar-event'
 import { dayKey } from '../lib/format'
 import type { ZoomLevelId } from '../lib/zoom'
 import { loadCalendarView } from '../server/events'
+import { updateEvent } from '../server/event-mutations'
 
 interface AppSearch {
   level: ZoomLevelId
@@ -60,6 +67,22 @@ function AppPage() {
   const go = (nextLevel: ZoomLevelId, nextDate: string) =>
     navigate({ search: { level: nextLevel, date: nextDate } })
 
+  async function moveEvent(event: CalendarEvent, targetDayKey: string) {
+    const delta = differenceInCalendarDays(
+      new Date(`${targetDayKey}T12:00:00`),
+      startOfDay(new Date(event.start)),
+    )
+    if (delta === 0) return
+    const ns = addDays(new Date(event.start), delta)
+    const ne = addDays(new Date(event.end), delta)
+    await updateEvent({
+      data: event.allDay
+        ? { id: event.id, start: dayKey(ns), end: dayKey(ne), allDay: true }
+        : { id: event.id, start: ns.toISOString(), end: ne.toISOString(), allDay: false },
+    })
+    void router.invalidate()
+  }
+
   const shiftPeriod = (dir: -1 | 1) => {
     const f = focus
     const moved =
@@ -97,6 +120,7 @@ function AppPage() {
           now={now}
           onZoom={go}
           onSelectEvent={(event) => setModal({ mode: 'edit', event })}
+          onMoveEvent={moveEvent}
         />
       </main>
 

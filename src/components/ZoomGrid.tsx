@@ -1,3 +1,12 @@
+import {
+  DndContext,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
 import { format, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Pin, Star } from 'lucide-react'
@@ -6,7 +15,7 @@ import { useElementSize } from '../hooks/use-element-size'
 import { layoutForLevel } from '../lib/zoom'
 import type { ZoomLevelId } from '../lib/zoom'
 import type { CalendarEvent } from '../lib/calendar-event'
-import type { DayCell } from '../server/events'
+import type { DayCell, GridEvent } from '../server/events'
 
 const GAP = 3
 
@@ -16,16 +25,27 @@ export function ZoomGrid({
   now,
   onZoom,
   onSelectEvent,
+  onMoveEvent,
 }: {
   level: ZoomLevelId
   days: DayCell[]
   now: Date
   onZoom: (level: ZoomLevelId, dateKey: string) => void
   onSelectEvent: (event: CalendarEvent) => void
+  onMoveEvent: (event: CalendarEvent, targetDayKey: string) => void
 }) {
   if (level === 0)
     return <DayColumn day={days[0]} now={now} onSelectEvent={onSelectEvent} />
-  return <GridSurface level={level} days={days} now={now} onZoom={onZoom} />
+  return (
+    <GridSurface
+      level={level}
+      days={days}
+      now={now}
+      onZoom={onZoom}
+      onSelectEvent={onSelectEvent}
+      onMoveEvent={onMoveEvent}
+    />
+  )
 }
 
 function GridSurface({
@@ -33,24 +53,30 @@ function GridSurface({
   days,
   now,
   onZoom,
+  onSelectEvent,
+  onMoveEvent,
 }: {
   level: ZoomLevelId
   days: DayCell[]
   now: Date
   onZoom: (level: ZoomLevelId, dateKey: string) => void
+  onSelectEvent: (event: CalendarEvent) => void
+  onMoveEvent: (event: CalendarEvent, targetDayKey: string) => void
 }) {
   const [ref, { width, height }] = useElementSize<HTMLDivElement>()
+  // Pequeña distancia de activación: distingue click (editar) de arrastre (mover).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  )
   const layout = layoutForLevel(level)
   const weeks = Math.max(1, Math.round(days.length / 7))
 
-  // Geometría según el nivel; las celdas se dimensionan para caber sin scroll.
-  const weekAsColumn = layout.weekAsColumn // año: semanas en columnas
+  const weekAsColumn = layout.weekAsColumn
   const cols = weekAsColumn ? weeks : 7
   const rows = weekAsColumn ? 7 : level === 1 ? 1 : weeks
 
   const cellW = (width - GAP * (cols - 1)) / cols
   const cellH = (height - GAP * (rows - 1)) / rows
-  // Cuadradas en mes/trimestre/año; en semana ocupan toda la altura.
   const sq = Math.max(0, Math.min(cellW, cellH))
   const w = level === 1 ? Math.max(0, cellW) : sq
   const h = level === 1 ? Math.max(0, cellH) : sq
@@ -68,37 +94,154 @@ function GridSurface({
       }
 
   function handleClick(day: DayCell) {
-    // Niveles gruesos bajan un nivel; finos saltan al día.
     if (level >= 3) onZoom((level - 1) as ZoomLevelId, day.key)
     else onZoom(0, day.key)
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    const overId = e.over?.id
+    const event = e.active.data.current?.event as GridEvent | undefined
+    if (event && typeof overId === 'string' && overId !== e.active.id) {
+      onMoveEvent(event, overId)
+    }
   }
 
   return (
     <div ref={ref} className="flex h-full w-full items-center justify-center">
       {width > 0 && height > 0 && (
-        <div className="grid" style={{ ...gridStyle, gap: GAP }}>
-          <AnimatePresence initial={false}>
-            {days.map((day) => (
-              <motion.button
-                layout
-                key={day.key}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => handleClick(day)}
-                aria-label={`${format(day.date, "EEEE d 'de' MMMM", { locale: es })}: ${day.count} evento${day.count === 1 ? '' : 's'}${day.pinned ? ', fijado' : ''}`}
-                aria-current={isSameDay(day.date, now) ? 'date' : undefined}
-                style={{ width: w, height: h }}
-                className="relative overflow-hidden rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              >
-                <Cell day={day} cell={layout.cell} now={now} px={Math.min(w, h)} />
-              </motion.button>
-            ))}
-          </AnimatePresence>
-        </div>
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <div className="grid" style={{ ...gridStyle, gap: GAP }}>
+            <AnimatePresence initial={false}>
+              {days.map((day) =>
+                level === 2 ? (
+                  <MonthCell
+                    key={day.key}
+                    day={day}
+                    w={w}
+                    h={h}
+                    now={now}
+                    onZoomDay={(k) => onZoom(0, k)}
+                    onSelectEvent={onSelectEvent}
+                  />
+                ) : (
+                  <motion.button
+                    layout
+                    key={day.key}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={() => handleClick(day)}
+                    aria-label={`${format(day.date, "EEEE d 'de' MMMM", { locale: es })}: ${day.count} evento${day.count === 1 ? '' : 's'}${day.pinned ? ', fijado' : ''}`}
+                    aria-current={isSameDay(day.date, now) ? 'date' : undefined}
+                    style={{ width: w, height: h }}
+                    className="relative overflow-hidden rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  >
+                    <Cell day={day} cell={layout.cell} now={now} px={Math.min(w, h)} />
+                  </motion.button>
+                ),
+              )}
+            </AnimatePresence>
+          </div>
+        </DndContext>
       )}
     </div>
+  )
+}
+
+function MonthCell({
+  day,
+  w,
+  h,
+  now,
+  onZoomDay,
+  onSelectEvent,
+}: {
+  day: DayCell
+  w: number
+  h: number
+  now: Date
+  onZoomDay: (dateKey: string) => void
+  onSelectEvent: (event: CalendarEvent) => void
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: day.key })
+  const today = isSameDay(day.date, now)
+  const maxChips = Math.min(w, h) >= 64 ? 3 : 2
+  const shown = day.events.slice(0, maxChips)
+  const rest = day.events.length - shown.length
+
+  return (
+    <motion.div
+      layout
+      ref={setNodeRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      style={{ width: w, height: h }}
+      className={`relative flex flex-col gap-0.5 overflow-hidden rounded border p-1 ${
+        isOver
+          ? 'border-blue-400 bg-blue-100'
+          : today
+            ? 'border-blue-500 bg-blue-50'
+            : 'border-neutral-200 bg-white'
+      }`}
+    >
+      <button
+        onClick={() => onZoomDay(day.key)}
+        aria-label={`${format(day.date, "EEEE d 'de' MMMM", { locale: es })}: ${day.count} evento${day.count === 1 ? '' : 's'}`}
+        aria-current={today ? 'date' : undefined}
+        className={`self-start rounded px-1 text-[11px] font-medium leading-none ${today ? 'text-blue-700' : 'text-neutral-500'}`}
+      >
+        {day.date.getDate()}
+      </button>
+      {shown.map((e) => (
+        <DraggableChip key={e.id} event={e} onSelect={onSelectEvent} />
+      ))}
+      {rest > 0 && <span className="text-[9px] text-neutral-400">+{rest}</span>}
+      {day.pinned && <Pin className="absolute right-0.5 top-0.5 text-amber-500" size={10} />}
+    </motion.div>
+  )
+}
+
+function DraggableChip({
+  event,
+  onSelect,
+}: {
+  event: GridEvent
+  onSelect: (event: CalendarEvent) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: event.id,
+    data: { event },
+  })
+  const color = event.tags[0]?.color
+  return (
+    <button
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={(e) => {
+        e.stopPropagation()
+        onSelect(event)
+      }}
+      style={{
+        transform: transform
+          ? `translate(${transform.x}px, ${transform.y}px)`
+          : undefined,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 50 : undefined,
+        position: 'relative',
+        borderLeft: color ? `3px solid ${color}` : undefined,
+        touchAction: 'none',
+      }}
+      className="flex items-center gap-0.5 truncate rounded bg-emerald-100 px-1 text-left text-[10px] leading-tight text-emerald-900"
+    >
+      {event.pinned && (
+        <Star size={8} className="shrink-0 text-amber-600" fill="currentColor" />
+      )}
+      <span className="truncate">{event.title}</span>
+    </button>
   )
 }
 
@@ -144,7 +287,7 @@ function Cell({
     )
   }
 
-  // chips (mes)
+  // blocks (semana) / fallback
   const maxChips = px >= 64 ? 3 : 2
   const shown = day.events.slice(0, maxChips)
   const rest = day.events.length - shown.length
