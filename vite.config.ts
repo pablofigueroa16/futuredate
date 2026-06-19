@@ -7,11 +7,19 @@ import { nitro } from 'nitro/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-const config = defineConfig({
+// nitro() solo en `build` (genera la salida que Vercel autodetecta como Functions).
+// En `dev` lo omitimos: el server de Nitro v3 beta da "ssr unavailable" de forma
+// intermitente; el dev nativo de TanStack Start es estable. Debe ir entre
+// tanstackStart() y viteReact().
+const config = defineConfig(({ command }) => ({
   resolve: { tsconfigPaths: true },
-  // nitro() debe ir entre tanstackStart() y viteReact(); genera la salida que
-  // Vercel autodetecta y despliega como Vercel Functions.
-  plugins: [devtools(), tailwindcss(), tanstackStart(), nitro(), viteReact()],
-})
+  plugins: [
+    devtools(),
+    tailwindcss(),
+    tanstackStart(),
+    ...(command === 'build' ? [nitro()] : []),
+    viteReact(),
+  ],
+}))
 
 export default config

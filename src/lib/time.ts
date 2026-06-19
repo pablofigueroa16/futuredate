@@ -50,6 +50,11 @@ export function timeUntil(target: Date, now: Date): TimeUntil {
   return { isPast: false, totalMinutes, days, hours, minutes }
 }
 
+/** Redondea minutos al múltiplo de `step` más cercano (por defecto 30 → media hora). */
+export function snapMinutes(minutes: number, step = 30): number {
+  return Math.round(minutes / step) * step
+}
+
 /**
  * Texto compacto de la cuenta regresiva, mostrando las dos unidades mayores.
  * P.ej. "3 d · 4 h", "5 h · 12 min", "8 min", o "ahora" si ya pasó.

@@ -15,7 +15,7 @@ import type { CalendarEvent } from '../lib/calendar-event'
 import { dayKey } from '../lib/format'
 import type { ZoomLevelId } from '../lib/zoom'
 import { loadCalendarView } from '../server/events'
-import { updateEvent } from '../server/event-mutations'
+import { createEvent, updateEvent } from '../server/event-mutations'
 
 interface AppSearch {
   level: ZoomLevelId
@@ -83,6 +83,40 @@ function AppPage() {
     void router.invalidate()
   }
 
+  // Reubicar a una hora concreta (arrastre en la agenda del Día), preservando duración.
+  async function reschedule(event: CalendarEvent, newStart: Date) {
+    const durMs =
+      new Date(event.end).getTime() - new Date(event.start).getTime() || 3_600_000
+    const newEnd = new Date(newStart.getTime() + durMs)
+    await updateEvent({
+      data: {
+        id: event.id,
+        start: newStart.toISOString(),
+        end: newEnd.toISOString(),
+        allDay: false,
+      },
+    })
+    void router.invalidate()
+  }
+
+  // Crear arrastrando en la agenda: se fija en Google y se abre el modal para editar.
+  async function createAt(start: Date) {
+    const end = new Date(start.getTime() + 3_600_000)
+    const created = await createEvent({
+      data: {
+        title: 'Nuevo evento',
+        start: start.toISOString(),
+        end: end.toISOString(),
+        allDay: false,
+      },
+    })
+    setModal({
+      mode: 'edit',
+      event: { ...created, start: new Date(created.start), end: new Date(created.end) },
+    })
+    void router.invalidate()
+  }
+
   const shiftPeriod = (dir: -1 | 1) => {
     const f = focus
     const moved =
@@ -121,6 +155,8 @@ function AppPage() {
           onZoom={go}
           onSelectEvent={(event) => setModal({ mode: 'edit', event })}
           onMoveEvent={moveEvent}
+          onReschedule={reschedule}
+          onCreateAt={createAt}
         />
       </main>
 

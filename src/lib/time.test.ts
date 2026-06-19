@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { formatTimeUntil, getNextEvent, timeUntil } from './time'
+import { formatTimeUntil, getNextEvent, snapMinutes, timeUntil } from './time'
+
+describe('snapMinutes', () => {
+  it('redondea a la media hora más cercana', () => {
+    expect(snapMinutes(0)).toBe(0)
+    expect(snapMinutes(14)).toBe(0)
+    expect(snapMinutes(15)).toBe(30)
+    expect(snapMinutes(44)).toBe(30)
+    expect(snapMinutes(45)).toBe(60)
+    expect(snapMinutes(750)).toBe(750) // 12:30 exacto
+  })
+})
 
 const ev = (id: string, iso: string) => ({ id, start: new Date(iso) })
 

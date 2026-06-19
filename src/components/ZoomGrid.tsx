@@ -13,8 +13,9 @@ import { format, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Pin, Star } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useElementSize } from '../hooks/use-element-size'
+import { snapMinutes } from '../lib/time'
 import { layoutForLevel } from '../lib/zoom'
 import type { ZoomLevelId } from '../lib/zoom'
 import type { CalendarEvent } from '../lib/calendar-event'
@@ -31,6 +32,8 @@ export function ZoomGrid({
   onZoom,
   onSelectEvent,
   onMoveEvent,
+  onReschedule,
+  onCreateAt,
 }: {
   level: ZoomLevelId
   days: DayCell[]
@@ -38,9 +41,19 @@ export function ZoomGrid({
   onZoom: (level: ZoomLevelId, dateKey: string) => void
   onSelectEvent: (event: CalendarEvent) => void
   onMoveEvent: (event: CalendarEvent, targetDayKey: string) => void
+  onReschedule: (event: CalendarEvent, newStart: Date) => void
+  onCreateAt: (start: Date) => void
 }) {
   if (level === 0)
-    return <DayColumn day={days[0]} now={now} onSelectEvent={onSelectEvent} />
+    return (
+      <DayTimeline
+        day={days[0]}
+        now={now}
+        onSelectEvent={onSelectEvent}
+        onReschedule={onReschedule}
+        onCreateAt={onCreateAt}
+      />
+    )
   return (
     <GridSurface
       level={level}
@@ -338,57 +351,219 @@ function Cell({
   )
 }
 
-function DayColumn({
+// --- Vista Día: agenda horaria con crear/mover por arrastre ---
+
+const HOUR_PX = 48
+const PX_PER_MIN = HOUR_PX / 60
+const DAY_MIN = 24 * 60
+const GUTTER = 52
+
+type DayInteraction =
+  | {
+      kind: 'move'
+      event: GridEvent
+      durMin: number
+      grabOffsetMin: number
+      curStartMin: number
+    }
+  | { kind: 'create'; durMin: number; curStartMin: number }
+
+const minutesOfDay = (d: Date) => d.getHours() * 60 + d.getMinutes()
+const fmtMin = (min: number) => {
+  const h = Math.floor(min / 60) % 24
+  const m = Math.round(min % 60)
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+function DayTimeline({
   day,
   now,
   onSelectEvent,
+  onReschedule,
+  onCreateAt,
 }: {
   day: DayCell | undefined
   now: Date
   onSelectEvent: (event: CalendarEvent) => void
+  onReschedule: (event: CalendarEvent, newStart: Date) => void
+  onCreateAt: (start: Date) => void
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
+  const [interaction, setInteraction] = useState<DayInteraction | null>(null)
+  const isToday = day ? isSameDay(day.date, now) : false
+
+  // Scroll inicial a la hora actual (si es hoy) o a las 7:00.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const min = isToday ? minutesOfDay(now) : 7 * 60
+    el.scrollTop = Math.max(0, min * PX_PER_MIN - 80)
+  }, [day?.key])
+
   if (!day) return null
+  const theDay = day
+
+  const timed = theDay.events.filter((e) => !e.allDay)
+  const allDayEvents = theDay.events.filter((e) => e.allDay)
+
+  const pointerMin = (clientY: number) => {
+    const rect = innerRef.current?.getBoundingClientRect()
+    return rect ? (clientY - rect.top) / PX_PER_MIN : 0
+  }
+  const clampStart = (min: number, dur: number) =>
+    Math.max(0, Math.min(DAY_MIN - dur, min))
+  const dateAt = (min: number) => {
+    const d = new Date(theDay.date)
+    d.setHours(Math.floor(min / 60), Math.round(min % 60), 0, 0)
+    return d
+  }
+  const durationMin = (e: GridEvent) => {
+    const m = (new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000
+    return m > 0 ? m : 60
+  }
+
+  function startGrid(e: React.PointerEvent) {
+    if (e.button !== 0) return
+    innerRef.current?.setPointerCapture(e.pointerId)
+    setInteraction({
+      kind: 'create',
+      durMin: 60,
+      curStartMin: clampStart(snapMinutes(pointerMin(e.clientY)), 60),
+    })
+  }
+
+  function startMove(e: React.PointerEvent, ev: GridEvent) {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    innerRef.current?.setPointerCapture(e.pointerId)
+    const startMin = minutesOfDay(new Date(ev.start))
+    setInteraction({
+      kind: 'move',
+      event: ev,
+      durMin: durationMin(ev),
+      grabOffsetMin: pointerMin(e.clientY) - startMin,
+      curStartMin: startMin,
+    })
+  }
+
+  function onMove(e: React.PointerEvent) {
+    if (!interaction) return
+    const pm = pointerMin(e.clientY)
+    const raw = interaction.kind === 'move' ? pm - interaction.grabOffsetMin : pm
+    const next = clampStart(snapMinutes(raw), interaction.durMin)
+    if (next !== interaction.curStartMin) {
+      setInteraction({ ...interaction, curStartMin: next })
+    }
+  }
+
+  function onUp() {
+    if (!interaction) return
+    if (interaction.kind === 'move') {
+      const orig = minutesOfDay(new Date(interaction.event.start))
+      if (interaction.curStartMin === orig) onSelectEvent(interaction.event)
+      else onReschedule(interaction.event, dateAt(interaction.curStartMin))
+    } else {
+      onCreateAt(dateAt(interaction.curStartMin))
+    }
+    setInteraction(null)
+  }
+
+  const blockStyle = (startMin: number, durMin: number): React.CSSProperties => ({
+    position: 'absolute',
+    top: startMin * PX_PER_MIN,
+    height: Math.max(18, durMin * PX_PER_MIN - 2),
+    left: GUTTER,
+    right: 8,
+  })
+
   return (
-    <div className="mx-auto h-full w-full max-w-lg overflow-y-auto p-2">
-      {day.events.length === 0 ? (
-        <p className="mt-8 text-center text-neutral-400">Nada este día.</p>
-      ) : (
-        <ul className="space-y-2">
-          {day.events.map((e) => (
-            <li key={e.id}>
-              <button
-                onClick={() => onSelectEvent(e)}
-                className="flex w-full items-baseline gap-3 rounded-lg border border-neutral-200 bg-white p-3 text-left hover:border-neutral-300 hover:bg-neutral-50"
-              >
-                <span className="w-12 shrink-0 text-sm tabular-nums text-neutral-500">
-                  {e.allDay
-                    ? 'Todo'
-                    : new Date(e.start).toLocaleTimeString('es', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                </span>
-                <span className="flex min-w-0 flex-1 items-center gap-2">
-                  {e.pinned && (
-                    <Star size={13} className="shrink-0 text-amber-500" fill="currentColor" />
-                  )}
-                  <span className="truncate font-medium text-neutral-900">{e.title}</span>
-                  {e.tags.map((t) => (
-                    <span
-                      key={t.name}
-                      title={t.name}
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: t.color }}
-                    />
-                  ))}
-                </span>
-              </button>
-            </li>
+    <div className="flex h-full w-full flex-col">
+      {allDayEvents.length > 0 && (
+        <div className="flex shrink-0 flex-wrap gap-1 border-b border-neutral-200 p-1.5">
+          {allDayEvents.map((e) => (
+            <button
+              key={e.id}
+              onClick={() => onSelectEvent(e)}
+              className="flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-900"
+            >
+              {e.pinned && <Star size={10} className="text-amber-600" fill="currentColor" />}
+              {e.title}
+            </button>
           ))}
-        </ul>
+        </div>
       )}
-      {/* `now` reservado para resaltar la hora actual en una iteración futura */}
-      <span hidden>{now.toISOString()}</span>
+
+      <div ref={scrollRef} className="relative flex-1 overflow-y-auto">
+        <div
+          ref={innerRef}
+          onPointerDown={startGrid}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          className="relative w-full select-none"
+          style={{ height: DAY_MIN * PX_PER_MIN }}
+        >
+          {Array.from({ length: 24 }, (_, h) => (
+            <div
+              key={h}
+              className="absolute inset-x-0 border-t border-neutral-100"
+              style={{ top: h * HOUR_PX }}
+            >
+              <span className="absolute -top-2 left-1 text-[10px] tabular-nums text-neutral-400">
+                {String(h).padStart(2, '0')}:00
+              </span>
+            </div>
+          ))}
+
+          {isToday && (
+            <div
+              className="absolute inset-x-0 z-10 border-t-2 border-red-500"
+              style={{ top: minutesOfDay(now) * PX_PER_MIN }}
+            >
+              <span className="absolute -top-1 left-0 h-2 w-2 -translate-x-1/2 rounded-full bg-red-500" />
+            </div>
+          )}
+
+          {timed.map((e) => {
+            const startMin = minutesOfDay(new Date(e.start))
+            const dragging =
+              interaction?.kind === 'move' && interaction.event.id === e.id
+            return (
+              <div
+                key={e.id}
+                onPointerDown={(ev) => startMove(ev, e)}
+                style={{
+                  ...blockStyle(startMin, durationMin(e)),
+                  opacity: dragging ? 0.3 : 1,
+                  touchAction: 'none',
+                }}
+                className="cursor-grab overflow-hidden rounded-md border-l-4 border-emerald-500 bg-emerald-100 px-2 py-0.5 text-xs text-emerald-900 shadow-sm"
+              >
+                <div className="flex items-center gap-1 font-medium">
+                  {e.pinned && <Star size={10} className="text-amber-600" fill="currentColor" />}
+                  <span className="truncate">{e.title}</span>
+                </div>
+                <div className="text-[10px] text-emerald-700">{fmtMin(startMin)}</div>
+              </div>
+            )
+          })}
+
+          {interaction && (
+            <div
+              style={blockStyle(interaction.curStartMin, interaction.durMin)}
+              className="pointer-events-none z-20 flex flex-col justify-center rounded-md border-2 border-blue-500 bg-blue-200/80 px-2 text-xs font-medium text-blue-900 shadow-lg"
+            >
+              <span className="truncate">
+                {interaction.kind === 'create' ? 'Nuevo evento' : interaction.event.title}
+              </span>
+              <span className="text-[10px]">
+                {fmtMin(interaction.curStartMin)}–
+                {fmtMin(interaction.curStartMin + interaction.durMin)}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
