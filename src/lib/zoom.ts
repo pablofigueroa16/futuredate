@@ -45,7 +45,7 @@ export const ZOOM_LEVELS: Record<ZoomLevelId, ZoomLevel> = {
   0: { id: 0, name: 'Día', layout: 'day', cell: 'full', weekAsColumn: false },
   1: { id: 1, name: 'Semana', layout: 'week', cell: 'blocks', weekAsColumn: false },
   2: { id: 2, name: 'Mes', layout: 'month', cell: 'chips', weekAsColumn: false },
-  3: { id: 3, name: 'Trimestre', layout: 'compact', cell: 'dots', weekAsColumn: false },
+  3: { id: 3, name: 'Trimestre', layout: 'compact', cell: 'dots', weekAsColumn: true },
   4: { id: 4, name: 'Año', layout: 'github', cell: 'heatmap', weekAsColumn: true },
 }
 
