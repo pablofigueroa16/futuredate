@@ -34,6 +34,7 @@ export function ZoomGrid({
   onMoveEvent,
   onReschedule,
   onCreateAt,
+  onSwapTimes,
 }: {
   level: ZoomLevelId
   days: DayCell[]
@@ -43,6 +44,7 @@ export function ZoomGrid({
   onMoveEvent: (event: CalendarEvent, targetDayKey: string) => void
   onReschedule: (event: CalendarEvent, newStart: Date) => void
   onCreateAt: (start: Date) => void
+  onSwapTimes: (a: CalendarEvent, b: CalendarEvent) => void
 }) {
   if (level === 0)
     return (
@@ -56,11 +58,12 @@ export function ZoomGrid({
     )
   if (level === 1)
     return (
-      <WeekTimeline
+      <WeekBlocks
         days={days}
         now={now}
         onSelectEvent={onSelectEvent}
-        onReschedule={onReschedule}
+        onMoveEvent={onMoveEvent}
+        onSwapTimes={onSwapTimes}
       />
     )
   return (
@@ -578,233 +581,165 @@ function DayTimeline({
   )
 }
 
-// --- Vista Semana: 7 columnas de agenda horaria; solo mover (hora y/o día) ---
+// --- Vista Semana: días en columnas de bloques; mover (reordenar y/o a otro día) ---
 
-function WeekTimeline({
+function WeekBlocks({
   days,
   now,
   onSelectEvent,
-  onReschedule,
+  onMoveEvent,
+  onSwapTimes,
 }: {
   days: DayCell[]
   now: Date
   onSelectEvent: (event: CalendarEvent) => void
-  onReschedule: (event: CalendarEvent, newStart: Date) => void
+  onMoveEvent: (event: CalendarEvent, targetDayKey: string) => void
+  onSwapTimes: (a: CalendarEvent, b: CalendarEvent) => void
 }) {
-  const [innerRef, { width }] = useElementSize<HTMLDivElement>()
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [drag, setDrag] = useState<{
-    event: GridEvent
-    durMin: number
-    grabOffsetMin: number
-    origDay: number
-    origStartMin: number
-    dayIndex: number
-    startMin: number
-  } | null>(null)
+  const [active, setActive] = useState<GridEvent | null>(null)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  )
 
-  useEffect(() => {
-    const el = scrollRef.current
-    if (el) el.scrollTop = Math.max(0, 7 * 60 * PX_PER_MIN - 80)
-  }, [])
-
-  const colW = width > 0 ? (width - GUTTER) / 7 : 0
-
-  const pointerPos = (clientX: number, clientY: number) => {
-    const rect = innerRef.current?.getBoundingClientRect()
-    if (!rect || colW === 0) return { col: 0, min: 0 }
-    const col = Math.max(
-      0,
-      Math.min(6, Math.floor((clientX - rect.left - GUTTER) / colW)),
-    )
-    return { col, min: (clientY - rect.top) / PX_PER_MIN }
+  function onDragStart(e: DragStartEvent) {
+    setActive((e.active.data.current?.event as GridEvent | undefined) ?? null)
   }
-  const clampStart = (min: number, dur: number) =>
-    Math.max(0, Math.min(DAY_MIN - dur, min))
-  const durationMin = (e: GridEvent) => {
-    const m = (new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000
-    return m > 0 ? m : 60
-  }
-  const dateAt = (dayDate: Date, min: number) => {
-    const d = new Date(dayDate)
-    d.setHours(Math.floor(min / 60), Math.round(min % 60), 0, 0)
-    return d
-  }
-
-  function startMove(e: React.PointerEvent, ev: GridEvent, dayIdx: number) {
-    if (e.button !== 0) return
-    e.stopPropagation()
-    innerRef.current?.setPointerCapture(e.pointerId)
-    const startMin = minutesOfDay(new Date(ev.start))
-    const { min } = pointerPos(e.clientX, e.clientY)
-    setDrag({
-      event: ev,
-      durMin: durationMin(ev),
-      grabOffsetMin: min - startMin,
-      origDay: dayIdx,
-      origStartMin: startMin,
-      dayIndex: dayIdx,
-      startMin,
-    })
-  }
-  function onMove(e: React.PointerEvent) {
-    if (!drag) return
-    const { col, min } = pointerPos(e.clientX, e.clientY)
-    const startMin = clampStart(snapMinutes(min - drag.grabOffsetMin, SNAP_MIN), drag.durMin)
-    if (col !== drag.dayIndex || startMin !== drag.startMin) {
-      setDrag({ ...drag, dayIndex: col, startMin })
+  function onDragEnd(e: DragEndEvent) {
+    setActive(null)
+    const a = e.active.data.current?.event as GridEvent | undefined
+    const aDay = e.active.data.current?.dayKey as string | undefined
+    const over = e.over
+    if (!a || !aDay || !over) return
+    const overId = String(over.id)
+    if (overId.startsWith('day:')) {
+      const targetDay = overId.slice(4)
+      if (targetDay !== aDay) onMoveEvent(a, targetDay)
+      return
     }
+    // Soltado sobre otro evento (id `evt:*`).
+    const b = over.data.current?.event as GridEvent | undefined
+    const bDay = over.data.current?.dayKey as string | undefined
+    if (!b || !bDay || b.id === a.id) return
+    if (bDay === aDay && !a.allDay && !b.allDay) onSwapTimes(a, b)
+    else if (bDay !== aDay) onMoveEvent(a, bDay)
   }
-  function onUp() {
-    if (!drag) return
-    if (drag.dayIndex === drag.origDay && drag.startMin === drag.origStartMin) {
-      onSelectEvent(drag.event)
-    } else {
-      onReschedule(drag.event, dateAt(days[drag.dayIndex].date, drag.startMin))
-    }
-    setDrag(null)
-  }
-
-  const blockStyle = (
-    col: number,
-    startMin: number,
-    durMin: number,
-  ): React.CSSProperties => ({
-    position: 'absolute',
-    top: startMin * PX_PER_MIN,
-    height: Math.max(16, durMin * PX_PER_MIN - 2),
-    left: GUTTER + col * colW + 1,
-    width: Math.max(0, colW - 3),
-  })
-
-  const hasAllDay = days.some((d) => d.events.some((e) => e.allDay))
 
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="flex shrink-0 border-b border-neutral-200">
-        <div style={{ width: GUTTER }} className="shrink-0" />
-        {days.map((d) => {
-          const today = isSameDay(d.date, now)
-          const lbl = format(d.date, 'EEE d', { locale: es })
-          return (
-            <div
-              key={d.key}
-              className={`flex-1 py-1 text-center text-xs font-medium ${today ? 'text-blue-700' : 'text-neutral-500'}`}
-            >
-              {lbl.charAt(0).toUpperCase() + lbl.slice(1)}
-            </div>
-          )
-        })}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => setActive(null)}
+    >
+      <div className="flex h-full w-full gap-1.5">
+        {days.map((d) => (
+          <WeekDayColumn
+            key={d.key}
+            day={d}
+            now={now}
+            onSelectEvent={onSelectEvent}
+          />
+        ))}
       </div>
+      <DragOverlay dropAnimation={null}>
+        {active ? <WeekBlockView event={active} dragging /> : null}
+      </DragOverlay>
+    </DndContext>
+  )
+}
 
-      {hasAllDay && (
-        <div className="flex shrink-0 border-b border-neutral-200">
-          <div style={{ width: GUTTER }} className="shrink-0" />
-          {days.map((d) => (
-            <div key={d.key} className="flex-1 space-y-0.5 p-0.5">
-              {d.events
-                .filter((e) => e.allDay)
-                .map((e) => (
-                  <button
-                    key={e.id}
-                    onClick={() => onSelectEvent(e)}
-                    className="block w-full truncate rounded bg-emerald-100 px-1 text-[10px] text-emerald-900"
-                  >
-                    {e.title}
-                  </button>
-                ))}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div ref={scrollRef} className="relative flex-1 overflow-y-auto">
-        <div
-          ref={innerRef}
-          onPointerMove={onMove}
-          onPointerUp={onUp}
-          className="relative w-full select-none"
-          style={{ height: DAY_MIN * PX_PER_MIN }}
-        >
-          {Array.from({ length: 24 }, (_, h) => (
-            <div
-              key={h}
-              className="absolute inset-x-0 border-t border-neutral-100"
-              style={{ top: h * HOUR_PX }}
-            >
-              <span className="absolute -top-2 left-1 text-[10px] tabular-nums text-neutral-400">
-                {String(h).padStart(2, '0')}
-              </span>
-            </div>
-          ))}
-
-          {colW > 0 &&
-            days.map((d, c) => (
-              <div
-                key={`col-${d.key}`}
-                className="absolute bottom-0 top-0 border-l border-neutral-100"
-                style={{ left: GUTTER + c * colW }}
-              />
-            ))}
-
-          {colW > 0 &&
-            days.map((d, c) =>
-              isSameDay(d.date, now) ? (
-                <div
-                  key={`now-${d.key}`}
-                  className="absolute z-10 border-t-2 border-red-500"
-                  style={{
-                    top: minutesOfDay(now) * PX_PER_MIN,
-                    left: GUTTER + c * colW,
-                    width: colW,
-                  }}
-                />
-              ) : null,
-            )}
-
-          {colW > 0 &&
-            days.flatMap((d, c) =>
-              d.events
-                .filter((e) => !e.allDay)
-                .map((e) => {
-                  const startMin = minutesOfDay(new Date(e.start))
-                  const dragging = drag?.event.id === e.id
-                  return (
-                    <div
-                      key={e.id}
-                      onPointerDown={(ev) => startMove(ev, e, c)}
-                      style={{
-                        ...blockStyle(c, startMin, durationMin(e)),
-                        opacity: dragging ? 0.3 : 1,
-                        touchAction: 'none',
-                      }}
-                      className="cursor-grab overflow-hidden rounded border-l-4 border-emerald-500 bg-emerald-100 px-1 text-[10px] text-emerald-900 shadow-sm"
-                    >
-                      <div className="flex items-center gap-0.5 font-medium">
-                        {e.pinned && (
-                          <Star size={9} className="text-amber-600" fill="currentColor" />
-                        )}
-                        <span className="truncate">{e.title}</span>
-                      </div>
-                      <div className="text-emerald-700">{fmtMin(startMin)}</div>
-                    </div>
-                  )
-                }),
-            )}
-
-          {drag && colW > 0 && (
-            <div
-              style={blockStyle(drag.dayIndex, drag.startMin, drag.durMin)}
-              className="pointer-events-none z-20 flex flex-col justify-center overflow-hidden rounded border-2 border-blue-500 bg-blue-200/80 px-1 text-[10px] font-medium text-blue-900 shadow-lg"
-            >
-              <span className="truncate">{drag.event.title}</span>
-              <span>
-                {fmtMin(drag.startMin)}–{fmtMin(drag.startMin + drag.durMin)}
-              </span>
-            </div>
-          )}
-        </div>
+function WeekDayColumn({
+  day,
+  now,
+  onSelectEvent,
+}: {
+  day: DayCell
+  now: Date
+  onSelectEvent: (event: CalendarEvent) => void
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `day:${day.key}` })
+  const today = isSameDay(day.date, now)
+  const lbl = format(day.date, 'EEE d', { locale: es })
+  const sorted = [...day.events].sort((a, b) =>
+    a.allDay === b.allDay
+      ? new Date(a.start).getTime() - new Date(b.start).getTime()
+      : a.allDay
+        ? -1
+        : 1,
+  )
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div
+        className={`shrink-0 border-b py-1 text-center text-xs font-medium ${today ? 'border-blue-500 text-blue-700' : 'border-neutral-200 text-neutral-500'}`}
+      >
+        {lbl.charAt(0).toUpperCase() + lbl.slice(1)}
       </div>
+      <div
+        ref={setNodeRef}
+        className={`flex-1 space-y-1 overflow-y-auto rounded-b p-1 ${isOver ? 'bg-blue-50 ring-2 ring-inset ring-blue-300' : ''}`}
+      >
+        {sorted.length === 0 ? (
+          <p className="pt-3 text-center text-[10px] text-neutral-300">—</p>
+        ) : (
+          sorted.map((e) => (
+            <WeekBlock key={e.id} event={e} dayKey={day.key} onSelect={onSelectEvent} />
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+function WeekBlock({
+  event,
+  dayKey,
+  onSelect,
+}: {
+  event: GridEvent
+  dayKey: string
+  onSelect: (event: CalendarEvent) => void
+}) {
+  const drag = useDraggable({ id: event.id, data: { event, dayKey } })
+  const drop = useDroppable({ id: `evt:${event.id}`, data: { event, dayKey } })
+  return (
+    <button
+      ref={(node) => {
+        drag.setNodeRef(node)
+        drop.setNodeRef(node)
+      }}
+      {...drag.listeners}
+      {...drag.attributes}
+      onClick={(e) => {
+        e.stopPropagation()
+        onSelect(event)
+      }}
+      style={{ opacity: drag.isDragging ? 0.3 : 1, touchAction: 'none' }}
+      className="block w-full cursor-grab text-left"
+    >
+      <WeekBlockView event={event} />
+    </button>
+  )
+}
+
+function WeekBlockView({ event, dragging }: { event: GridEvent; dragging?: boolean }) {
+  const when = event.allDay
+    ? 'Todo el día'
+    : new Date(event.start).toLocaleTimeString('es', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+  return (
+    <div
+      className={`overflow-hidden rounded border-l-4 border-emerald-500 bg-emerald-100 px-1.5 py-1 text-[11px] text-emerald-900 shadow-sm ${dragging ? 'cursor-grabbing shadow-lg ring-1 ring-emerald-400' : ''}`}
+    >
+      <div className="flex items-center gap-1 font-medium">
+        {event.pinned && (
+          <Star size={9} className="text-amber-600" fill="currentColor" />
+        )}
+        <span className="truncate">{event.title}</span>
+      </div>
+      <div className="text-[10px] text-emerald-700">{when}</div>
     </div>
   )
 }

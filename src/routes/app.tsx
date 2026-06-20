@@ -117,6 +117,31 @@ function AppPage() {
     void router.invalidate()
   }
 
+  // Reordenar en la Semana: intercambia el horario de dos eventos del mismo día.
+  async function swapTimes(a: CalendarEvent, b: CalendarEvent) {
+    const aStart = new Date(a.start)
+    const bStart = new Date(b.start)
+    const aDur = new Date(a.end).getTime() - aStart.getTime() || 3_600_000
+    const bDur = new Date(b.end).getTime() - bStart.getTime() || 3_600_000
+    await updateEvent({
+      data: {
+        id: a.id,
+        start: bStart.toISOString(),
+        end: new Date(bStart.getTime() + aDur).toISOString(),
+        allDay: false,
+      },
+    })
+    await updateEvent({
+      data: {
+        id: b.id,
+        start: aStart.toISOString(),
+        end: new Date(aStart.getTime() + bDur).toISOString(),
+        allDay: false,
+      },
+    })
+    void router.invalidate()
+  }
+
   const shiftPeriod = (dir: -1 | 1) => {
     const f = focus
     const moved =
@@ -157,6 +182,7 @@ function AppPage() {
           onMoveEvent={moveEvent}
           onReschedule={reschedule}
           onCreateAt={createAt}
+          onSwapTimes={swapTimes}
         />
       </main>
 
