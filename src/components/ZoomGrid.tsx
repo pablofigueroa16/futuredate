@@ -357,6 +357,7 @@ const HOUR_PX = 48
 const PX_PER_MIN = HOUR_PX / 60
 const DAY_MIN = 24 * 60
 const GUTTER = 52
+const SNAP_MIN = 15 // granularidad del arrastre: :00, :15, :30, :45
 
 type DayInteraction =
   | {
@@ -429,7 +430,7 @@ function DayTimeline({
     setInteraction({
       kind: 'create',
       durMin: 60,
-      curStartMin: clampStart(snapMinutes(pointerMin(e.clientY)), 60),
+      curStartMin: clampStart(snapMinutes(pointerMin(e.clientY), SNAP_MIN), 60),
     })
   }
 
@@ -451,7 +452,7 @@ function DayTimeline({
     if (!interaction) return
     const pm = pointerMin(e.clientY)
     const raw = interaction.kind === 'move' ? pm - interaction.grabOffsetMin : pm
-    const next = clampStart(snapMinutes(raw), interaction.durMin)
+    const next = clampStart(snapMinutes(raw, SNAP_MIN), interaction.durMin)
     if (next !== interaction.curStartMin) {
       setInteraction({ ...interaction, curStartMin: next })
     }

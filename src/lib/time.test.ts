@@ -10,6 +10,14 @@ describe('snapMinutes', () => {
     expect(snapMinutes(45)).toBe(60)
     expect(snapMinutes(750)).toBe(750) // 12:30 exacto
   })
+
+  it('con step 15 cae en :00/:15/:30/:45', () => {
+    expect(snapMinutes(7, 15)).toBe(0)
+    expect(snapMinutes(8, 15)).toBe(15)
+    expect(snapMinutes(22, 15)).toBe(15)
+    expect(snapMinutes(23, 15)).toBe(30)
+    expect(snapMinutes(765, 15)).toBe(765) // 12:45 exacto
+  })
 })
 
 const ev = (id: string, iso: string) => ({ id, start: new Date(iso) })
